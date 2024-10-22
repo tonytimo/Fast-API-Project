@@ -1,12 +1,17 @@
 # routes.py
 import json
+import os
 from fastapi import APIRouter
 
 
 def _setup() -> dict[str, list[dict[str,str|int]]]:
-    with open(file="data.json", mode="r", encoding="utf-8") as f:
+    # Get the absolute path of the current file (router.py)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Construct the full path to data.json
+    data_file_path = os.path.join(base_dir, "data.json")
+    with open(file=data_file_path, mode="r", encoding="utf-8") as f:
         json_str = f.read()
-    user_list = json.loads(json_str)
+        user_list = json.loads(json_str)
     return user_list
 
 router = APIRouter()
