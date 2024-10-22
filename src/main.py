@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from router import get_router
+from src.router import get_router
 
 
 def main() -> FastAPI:
