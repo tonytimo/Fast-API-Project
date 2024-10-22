@@ -35,3 +35,8 @@ class TestRouter:
             "name": "Don"
         }
     ]
+        
+    def test_get_user(self) -> None:
+        response = self.client.get("/users/1")
+        assert response.status_code == 200
+        assert response.json() == { "user_id": 1,"name": "Joe" }
