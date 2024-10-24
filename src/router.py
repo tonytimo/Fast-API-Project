@@ -1,43 +1,54 @@
-# routes.py
+from fastapi import APIRouter, HTTPException
+from database import RedisClient
+from pydantic import BaseModel
 import json
-import os
-from fastapi import APIRouter
-
-
-def _setup() -> dict[str, list[dict[str,str|int]]]:
-    # Get the absolute path of the current file (router.py)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    # Construct the full path to data.json
-    data_file_path = os.path.join(base_dir, "data.json")
-    with open(file=data_file_path, mode="r", encoding="utf-8") as f:
-        json_str = f.read()
-        user_list = json.loads(json_str)
-    return user_list
+import uuid
 
 router = APIRouter()
-data = _setup()
-
-
-@router.get("/users")
-def get_users() -> list[dict[str, str|int]]:
-    return data.get("users") # type: ignore
-
-@router.get("/users/{user_id}")
-def get_user(user_id: int) -> dict[str, str|int]:
-    for user in data.get("users"): # type: ignore
-        if user_id == user.get("user_id"):
-            return user
-    return {"message": f"there is no such user with id:{id}"}
-
-@router.post("/user")
-def add_user(name: str) -> dict[str, str|int]:
-    user_id = data.get("users")[-1].get("user_id")+1 # type: ignore
-    data["users"].append({"user_id": user_id, "name": name})
-    with open(file="data.json", mode="w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    
-    return {"user_id": user_id, "name": name}
+redis_client = RedisClient().redis_client
 
 
 def get_router() -> APIRouter:
     return router
+
+
+# User model
+class User(BaseModel):
+    name: str
+    email: str
+
+
+@router.post("/user")
+def create_user(user: User) -> dict[str, str]:
+    user_id = str(uuid.uuid4())
+    user_dict = user.dict()
+    user_dict["id"] = user_id
+
+    # Store user data in Redis as a JSON string
+    redis_client.set(user_id, json.dumps(user_dict))
+
+    return {"message": "User created successfully", "user_id": user_id}
+
+
+@router.get("/user/{user_id}")
+def get_user(user_id: str) -> User:
+    user_data = redis_client.get(user_id)
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = json.loads(user_data)  # type: ignore
+    return user
+
+
+@router.get("/users")
+def get_all_users() -> list[User]:
+    user_keys = redis_client.keys()  # Get all keys
+    users = []
+    if user_keys:
+        for key in user_keys:  # type: ignore
+            user_data = redis_client.get(key)
+            user = json.loads(user_data)  # type: ignore
+            users.append(user)
+        return users
+    else:
+        raise HTTPException(status_code=404, detail="There are no Users")
