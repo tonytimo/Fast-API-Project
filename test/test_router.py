@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from ..src.main import get_app
+from src.main import get_app
 
 
 class TestRouter:
